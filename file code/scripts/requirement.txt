@@ -1,0 +1,8 @@
+click
+rich
+plyer
+pywebview
+pyngrok
+pywin32
+winshell
+auto-py-to-exe

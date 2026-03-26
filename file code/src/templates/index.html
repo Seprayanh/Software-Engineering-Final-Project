@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TODO Pro</title>
+    <style>
+        :root {
+            --bg: #1e1e2e; --header: #181825; --card: #313244; --hover: #45475a;
+            --text: #cdd6f4; --subtext: #a6adc8; --accent: #89b4fa;
+            --danger: #f38ba8; --success: #a6e3a1; --warning: #f9e2af;
+            --border: rgba(255,255,255,0.08);
+            --font: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+        }
+        [data-theme="light"] {
+            --bg: #f4f6f8; --header: #ffffff; --card: #ffffff; --hover: #f1f3f5;
+            --text: #2d3748; --subtext: #718096; --accent: #3182ce;
+            --danger: #e53e3e; --success: #38a169; --warning: #dd6b20;
+            --border: #e2e8f0;
+        }
+
+        /* 基础设置：防止滚动条出现 */
+        body { margin:0; padding:0; font-family:var(--font); background:transparent; color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; user-select:none; }
+        
+        /* 核心修复：只给主界面(.app-shell)加最小宽度限制，不限制 body */
+        /* 这样切换到微缩模式时，body 可以变小，而主界面保持宽敞 */
+        .app-shell { 
+            flex:1; margin:2px; background:var(--bg); border-radius:12px; 
+            box-shadow:0 0 15px rgba(0,0,0,0.5); border:1px solid var(--border); 
+            display:flex; flex-direction:column; overflow:hidden; 
+            min-width: 380px; /* 物理防御：无论窗口多小，内容至少宽380px */
+        }
+        
+        .drag-bar { height:40px; background:var(--header); display:flex; align-items:center; justify-content:space-between; padding:0 15px; -webkit-app-region:drag; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .app-logo { font-weight:bold; color:var(--accent); font-size:14px; }
+        .win-controls { display:flex; gap:8px; -webkit-app-region:no-drag; }
+        .icon-btn { cursor:pointer; font-size:18px; padding:4px; transition:0.2s; opacity:0.8; color: var(--text); }
+        .icon-btn:hover { opacity:1; transform:scale(1.1); }
+        .win-dot { width:12px; height:12px; border-radius:50%; cursor:pointer; }
+        .d-g { background:var(--success); } .d-y { background:var(--warning); } .d-r { background:var(--danger); }
+
+        .main-content { flex:1; padding:15px; overflow-y:auto; scrollbar-width:none; }
+        
+        .panel { 
+            background:var(--card); padding:15px; border-radius:12px; 
+            display:flex; flex-direction:column; gap:12px;
+            box-shadow:0 4px 10px rgba(0,0,0,0.1); margin-bottom:15px; border: 1px solid var(--border);
+        }
+        
+        input, select { 
+            background:var(--bg); border:1px solid var(--border); color:var(--text); 
+            padding:8px 10px; border-radius:8px; outline:none; font-family:var(--font); 
+            width:100%; box-sizing:border-box; font-size:13px; height: 36px;
+            flex-shrink: 0; 
+        }
+        
+        .row { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
+        .row select { flex: 1; min-width: 90px; } 
+
+        .btn { background:var(--accent); color: white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%; transition:0.2s; display:flex; justify-content:center; align-items:center; gap:5px; height: 38px; flex-shrink: 0; }
+        .btn:hover { filter:brightness(1.1); }
+        .btn.sec { background:var(--hover); color:var(--text); border: 1px solid var(--border); }
+        
+        .tiny-group { 
+            display:flex; align-items:center; background:var(--bg); 
+            border:1px solid var(--border); border-radius:8px; padding:0 8px; 
+            height: 36px; flex: 0 0 auto; width: auto; min-width: 150px; 
+        }
+        .tiny-input { border:none; background:transparent; text-align:center; width: 24px; padding:0; height: 100%; }
+        .tiny-input::-webkit-inner-spin-button, .tiny-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .tiny-label { color:var(--subtext); font-size:12px; margin: 0 4px; white-space:nowrap; }
+
+        #dead, #editDead { flex: 1; min-width: 130px; }
+
+        .list-header { font-size:12px; color:var(--subtext); margin:5px 0; font-weight:bold; letter-spacing:1px; }
+        .task-list { list-style:none; padding:0; margin:0; min-height:20px; }
+        .task-item { background:var(--card); padding:12px; margin-bottom:8px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; border-left:4px solid transparent; cursor:grab; transition:all 0.2s; border: 1px solid var(--border); }
+        .task-item:hover { transform: translateY(-1px); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .task-item.dragging { opacity:0.5; background:var(--bg); border:1px dashed var(--accent); }
+        .p-3 { border-color:var(--danger); } .p-2 { border-color:var(--warning); } .p-1 { border-color:var(--success); }
+        
+        .task-content { flex:1; margin:0 10px; overflow:hidden; cursor:pointer; } 
+        .task-content:hover .task-title { color:var(--accent); text-decoration: underline; }
+        .task-title { font-size:14px; white-space:nowrap; text-overflow:ellipsis; }
+        .task-meta { font-size:11px; color:var(--subtext); display:flex; gap:8px; margin-top:4px; align-items:center; }
+        .badge { background:rgba(128,128,128,0.15); padding:2px 6px; border-radius:4px; }
+        .done-item { opacity:0.6; } .done-item .task-title { text-decoration:line-through; }
+
+        .modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:999; backdrop-filter:blur(3px); }
+        .modal-box { background:var(--bg); padding:25px; border-radius:16px; width:85%; max-width:320px; text-align:center; border:1px solid var(--border); box-shadow:0 10px 30px rgba(0,0,0,0.5); animation: popIn 0.2s ease; }
+        @keyframes popIn { from{transform:scale(0.9);opacity:0;} to{transform:scale(1);opacity:1;} }
+        
+        .stat-row { display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px; border-bottom:1px solid var(--border); padding-bottom:4px; }
+        .del-icon { font-size: 48px; margin-bottom: 10px; animation: shake 0.5s ease; }
+        @keyframes shake { 0%,100%{transform:rotate(0);} 25%{transform:rotate(-10deg);} 75%{transform:rotate(10deg);} }
+        .del-desc { font-size: 13px; color: var(--subtext); margin-bottom: 20px; line-height: 1.5; }
+        
+        .timer-tabs { display:flex; margin-bottom:15px; border-bottom:1px solid var(--border); }
+        .timer-tab { flex:1; padding:8px; cursor:pointer; font-size:13px; color:var(--subtext); border-bottom:2px solid transparent; }
+        .timer-tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:bold; }
+        .timer-input-group { display:flex; justify-content:center; gap:5px; margin-bottom:15px; }
+        .t-inp { width:50px; text-align:center; background:var(--hover); border:none; border-radius:4px; color:var(--text); padding:8px; }
+        
+        /* 微缩模式 */
+        #miniView { display:none; height:100%; flex-direction:column; align-items:center; justify-content:center; -webkit-app-region:drag; cursor:pointer; background:var(--bg); border-radius:6px; border:2px solid var(--accent); }
+        body.mini .app-shell { display:none; } body.mini #miniView { display:flex; }
+    </style>
+</head>
+<body>
+
+<div class="app-shell">
+    <div class="drag-bar">
+        <div class="app-logo">📌 TODO Pro <span id="user-display" style="font-weight:normal; font-size:11px; color:gray; margin-left:5px;"></span></div>
+        <div class="win-controls">
+            <span class="icon-btn" onclick="openTimer()" title="Timer">⏱️</span>
+            <span class="icon-btn" onclick="openStats()" title="Stats">📊</span>
+            <span class="icon-btn" onclick="openSettings()" title="Settings">⚙️</span>
+            <span style="border-left:1px solid var(--border); margin:0 5px;"></span>
+            <div class="win-dot d-g" onclick="toggleMini()"></div>
+            <div class="win-dot d-y" onclick="pyWin('min')"></div>
+            <div class="win-dot d-r" onclick="pyWin('close')"></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="panel">
+            <input type="text" id="inp" placeholder="💡 添加新任务..." />
+            
+            <div class="row">
+                <select id="prio">
+                    <option value="3" data-i18n="prio_h">🔥 高优先级</option>
+                    <option value="2" data-i18n="prio_m" selected>⚡ 中优先级</option>
+                    <option value="1" data-i18n="prio_l">☕ 低优先级</option>
+                </select>
+                <select id="cat">
+                    <option value="Work" data-i18n="cat_w">💼 工作</option>
+                    <option value="Study" data-i18n="cat_s">📚 学习</option>
+                    <option value="Life" data-i18n="cat_l">🏠 生活</option>
+                </select>
+            </div>
+
+            <div style="font-size:12px; color:var(--subtext); margin-bottom:-5px;" data-i18n="lbl_remind">提前提醒 (天/时/分):</div>
+            <div class="row">
+                <div class="tiny-group">
+                    <input type="number" id="rem_d" class="tiny-input" placeholder="0">
+                    <span class="tiny-label" data-i18n="d">天</span>
+                    <input type="number" id="rem_h" class="tiny-input" placeholder="0">
+                    <span class="tiny-label" data-i18n="h">时</span>
+                    <input type="number" id="rem_m" class="tiny-input" placeholder="15">
+                    <span class="tiny-label" data-i18n="m">分</span>
+                </div>
+                <input type="datetime-local" id="dead">
+            </div>
+
+            <button class="btn" onclick="addTask()"><span data-i18n="btn_add">➕ 添加到列表</span></button>
+        </div>
+
+        <div class="list-header" data-i18n="hdr_active">🔥 进行中 (ACTIVE)</div>
+        <ul id="list-active" class="task-list"></ul>
+        <div class="list-header" style="margin-top:20px;" data-i18n="hdr_done">📂 已归档 (ARCHIVED)</div>
+        <ul id="list-done" class="task-list"></ul>
+    </div>
+</div>
+
+<div id="miniView" ondblclick="toggleMini()">
+    <div id="mini-clock" style="font-size:32px; font-weight:bold; color:var(--accent);">00:00</div>
+    <div id="mini-date" style="font-size:12px; color:gray;">--/--</div>
+</div>
+
+<div id="modalDel" class="modal">
+    <div class="modal-box" style="max-width: 260px;">
+        <div class="del-icon">🗑️</div>
+        <h3 data-i18n="del_title">确认删除?</h3>
+        <p class="del-desc" data-i18n="del_desc">删除后无法恢复，确定要继续吗？</p>
+        <div class="row">
+            <button class="btn sec" onclick="closeModal('modalDel')" data-i18n="btn_cancel">取消</button>
+            <button class="btn" style="background:var(--danger); color:white;" onclick="confirmDel()" data-i18n="btn_del_confirm">删除</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalEdit" class="modal">
+    <div class="modal-box">
+        <h3 data-i18n="edit_title">✏️ 编辑任务</h3>
+        <input type="hidden" id="editId">
+        
+        <input type="text" id="editInp" style="margin-bottom:10px;">
+        
+        <div class="row" style="margin-bottom:10px;">
+            <select id="editPrio">
+                <option value="3" data-i18n="prio_h">🔥 高优先级</option>
+                <option value="2" data-i18n="prio_m">⚡ 中优先级</option>
+                <option value="1" data-i18n="prio_l">☕ 低优先级</option>
+            </select>
+            <select id="editCat">
+                <option value="Work" data-i18n="cat_w">💼 工作</option>
+                <option value="Study" data-i18n="cat_s">📚 学习</option>
+                <option value="Life" data-i18n="cat_l">🏠 生活</option>
+            </select>
+        </div>
+
+        <div style="font-size:11px; color:var(--subtext); margin-bottom:2px; text-align:left;" data-i18n="lbl_remind">提前提醒 (天/时/分):</div>
+        <div class="row" style="margin-bottom:10px;">
+            <div class="tiny-group">
+                <input type="number" id="edit_rem_d" class="tiny-input" placeholder="0"><span class="tiny-label" data-i18n="d">天</span>
+                <input type="number" id="edit_rem_h" class="tiny-input" placeholder="0"><span class="tiny-label" data-i18n="h">时</span>
+                <input type="number" id="edit_rem_m" class="tiny-input" placeholder="0"><span class="tiny-label" data-i18n="m">分</span>
+            </div>
+        </div>
+
+        <input type="datetime-local" id="editDead" style="margin-bottom:20px;">
+        
+        <div class="row">
+            <button class="btn sec" onclick="closeModal('modalEdit')" data-i18n="btn_cancel">取消</button>
+            <button class="btn" onclick="saveEdit()" data-i18n="btn_save">💾 保存修改</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalAlert" class="modal" style="z-index: 10001;">
+    <div class="modal-box" style="border: 2px solid var(--accent); box-shadow: 0 0 20px rgba(137, 180, 250, 0.5);">
+        <div class="del-icon">⏰</div>
+        <h3 id="alertTitle">提醒时间到!</h3>
+        <p id="alertContent" class="del-desc" style="font-size:16px; color:var(--text);">任务内容</p>
+        <button class="btn" onclick="closeModal('modalAlert')" data-i18n="btn_got_it">👌 知道了</button>
+    </div>
+</div>
+
+<div id="modalTimer" class="modal">
+    <div class="modal-box">
+        <div class="timer-tabs">
+            <div class="timer-tab active" onclick="switchTimerMode('countup')" id="tab-countup" data-i18n="mode_stopwatch">⏱️ 秒表</div>
+            <div class="timer-tab" onclick="switchTimerMode('countdown')" id="tab-countdown" data-i18n="mode_countdown">⏳ 倒计时</div>
+        </div>
+
+        <div id="countdown-inputs" style="display:none; margin-bottom:15px;">
+            <div class="timer-input-group">
+                <input type="number" id="cd_d" class="t-inp" placeholder="0"><span style="align-self:center">:</span>
+                <input type="number" id="cd_h" class="t-inp" placeholder="0"><span style="align-self:center">:</span>
+                <input type="number" id="cd_m" class="t-inp" placeholder="25"><span style="align-self:center">:</span>
+                <input type="number" id="cd_s" class="t-inp" placeholder="00">
+            </div>
+            <div style="font-size:10px; color:var(--subtext);">D : H : M : S</div>
+        </div>
+
+        <div id="timerDisplay" style="font-size:48px; font-weight:bold; color:var(--accent); margin:10px 0; font-family:monospace;">00:00:00</div>
+        
+        <div class="row">
+            <button class="btn" onclick="toggleTimer()" id="btnTimerAction">▶ Start</button>
+            <button class="btn sec" onclick="stopAndResetTimer()">↺ Reset</button>
+        </div>
+        <div style="margin-top:15px; font-size:12px; color:gray; cursor:pointer;" onclick="closeModal('modalTimer')" data-i18n="close">关闭</div>
+    </div>
+</div>
+
+<div id="modalSettings" class="modal">
+    <div class="modal-box">
+        <h3 data-i18n="settings_title">⚙️ 设置</h3>
+        <p style="text-align:left; color:var(--subtext); margin-bottom:5px;" data-i18n="lbl_theme">主题 / Theme</p>
+        <div class="row">
+            <button class="btn sec" onclick="setTheme('dark')">🌑 Dark</button>
+            <button class="btn sec" onclick="setTheme('light')">☀️ Light</button>
+        </div>
+        <p style="text-align:left; color:var(--subtext); margin-bottom:5px; margin-top:15px;" data-i18n="lbl_lang">语言 / Language</p>
+        <div class="row">
+            <button class="btn sec" onclick="setLang('zh')">🇨🇳 中文</button>
+            <button class="btn sec" onclick="setLang('en')">🇺🇸 English</button>
+        </div>
+        <button class="btn" style="margin-top:20px;" onclick="closeModal('modalSettings')" data-i18n="close">完成</button>
+    </div>
+</div>
+
+<div id="modalStats" class="modal">
+    <div class="modal-box">
+        <h3 data-i18n="stats_title">🏆 详细统计</h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+            <div style="background:rgba(0,0,0,0.1); padding:10px; border-radius:8px;">
+                <div style="font-size:20px; color:var(--success);" id="s-total">0</div>
+                <div style="font-size:10px;" data-i18n="stat_total">累计完成</div>
+            </div>
+            <div style="background:rgba(0,0,0,0.1); padding:10px; border-radius:8px;">
+                <div style="font-size:20px; color:var(--warning);" id="s-week">0</div>
+                <div style="font-size:10px;" data-i18n="stat_week">本周完成</div>
+            </div>
+        </div>
+        <div style="text-align:left; font-size:12px; color:var(--accent); margin-bottom:5px;" data-i18n="stat_cat">按分类</div>
+        <div id="stats-cat-list" style="margin-bottom:15px;"></div>
+        <div style="text-align:left; font-size:12px; color:var(--danger); margin-bottom:5px;" data-i18n="stat_prio">按优先级</div>
+        <div id="stats-prio-list"></div>
+        <button class="btn sec" style="margin-top:15px;" onclick="closeModal('modalStats')" data-i18n="close">关闭</button>
+    </div>
+</div>
+
+<div id="modalWelcome" class="modal" style="backdrop-filter:blur(10px);">
+    <div class="modal-box">
+        <h3>👋 欢迎 / Welcome</h3>
+        <input type="text" id="welcomeName" placeholder="Nickname / 昵称" style="margin-bottom:10px;">
+        <select id="welcomeRole" style="margin-bottom:20px;">
+            <option value="Student">🎓 Student / 学生</option>
+            <option value="Worker">💼 Worker / 上班族</option>
+            <option value="Freelancer">💻 Freelancer / 自由职业</option>
+        </select>
+        <button class="btn" onclick="saveProfile()">🚀 GO!</button>
+    </div>
+</div>
+
+<script>
+    const API = { tasks: '/api/tasks', stats: '/api/stats', profile: '/api/profile' };
+    let dragSrc = null;
+    let pendingDelId = null; 
+
+    // --- 计时器变量 ---
+    let timerMode = 'countup';
+    let timerRef = null;
+    let timerStartTime = 0;
+    let timerPausedTime = 0;
+    let isTimerRunning = false;
+    
+    // --- 国际化字典 ---
+    const I18N = {
+        zh: {
+            prio_h: "🔥 高优先级", prio_m: "⚡ 中优先级", prio_l: "☕ 低优先级",
+            cat_w: "💼 工作", cat_s: "📚 学习", cat_l: "🏠 生活",
+            lbl_remind: "提前提醒:", d:"天", h:"时", m:"分",
+            btn_add: "➕ 添加任务", hdr_active: "🔥 进行中", hdr_done: "📂 已归档",
+            timer_title: "专注助手", mode_stopwatch: "⏱️ 秒表", mode_countdown: "⏳ 倒计时",
+            settings_title: "⚙️ 设置", lbl_theme: "主题风格", lbl_lang: "语言设置", close: "关闭",
+            stats_title: "🏆 详细统计", stat_total: "累计完成", stat_week: "本周完成", stat_cat: "按分类", stat_prio: "按优先级",
+            del_title: "确认删除?", del_desc: "该操作将永久删除此任务，无法恢复。", btn_cancel: "取消", btn_del_confirm: "确认删除",
+            edit_title: "✏️ 编辑任务", btn_save: "💾 保存修改", btn_got_it: "👌 知道了", alert_title: "⏰ 提醒时间到!"
+        },
+        en: {
+            prio_h: "🔥 High", prio_m: "⚡ Medium", prio_l: "☕ Low",
+            cat_w: "💼 Work", cat_s: "📚 Study", cat_l: "🏠 Life",
+            lbl_remind: "Remind Before:", d:"d", h:"h", m:"m",
+            btn_add: "➕ Add Task", hdr_active: "🔥 Active", hdr_done: "📂 Archived",
+            timer_title: "Focus Tool", mode_stopwatch: "⏱️ Stopwatch", mode_countdown: "⏳ Countdown",
+            settings_title: "⚙️ Settings", lbl_theme: "Theme", lbl_lang: "Language", close: "Close",
+            stats_title: "🏆 Statistics", stat_total: "Total Done", stat_week: "This Week", stat_cat: "By Category", stat_prio: "By Priority",
+            del_title: "Delete Task?", del_desc: "This action is permanent and cannot be undone.", btn_cancel: "Cancel", btn_del_confirm: "Delete",
+            edit_title: "✏️ Edit Task", btn_save: "💾 Save Changes", btn_got_it: "👌 Got it", alert_title: "⏰ Reminder!"
+        }
+    };
+    let curLang = 'zh';
+
+    async function init() {
+        await checkProfile();
+        loadTasks();
+        setInterval(updateMiniClock, 1000);
+        updateMiniClock();
+    }
+
+    // --- 1. 配置管理 ---
+    async function checkProfile() {
+        try {
+            const res = await fetch(API.profile);
+            const data = await res.json();
+            if (data.theme) setTheme(data.theme, false);
+            if (data.lang) setLang(data.lang, false);
+            if (!data.name) { document.getElementById('modalWelcome').style.display = 'flex'; } 
+            else { updateUserDisplay(data.name, data.role); }
+        } catch(e) {}
+    }
+
+    function setTheme(theme, save=true) {
+        if(theme === 'light') document.body.setAttribute('data-theme', 'light');
+        else document.body.removeAttribute('data-theme');
+        if(save) saveConfig({theme: theme});
+    }
+
+    function setLang(lang, save=true) {
+        curLang = lang;
+        const t = I18N[lang];
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if(t[key]) el.innerText = t[key];
+        });
+        document.getElementById('inp').placeholder = lang==='zh' ? "💡 添加新任务..." : "💡 Add new task...";
+        if(save) saveConfig({lang: lang});
+    }
+
+    async function saveConfig(cfg) { await fetch(API.profile, { method:'POST', body:JSON.stringify(cfg) }); }
+    async function saveProfile() {
+        const name = document.getElementById('welcomeName').value;
+        const role = document.getElementById('welcomeRole').value;
+        if(!name) return;
+        await saveConfig({ name, role });
+        document.getElementById('modalWelcome').style.display = 'none';
+        updateUserDisplay(name, role);
+    }
+    
+    function updateUserDisplay(name, role) {
+        const roleIcons = { 'Student': '🎓', 'Worker': '💼', 'Freelancer': '💻' };
+        document.getElementById('user-display').innerText = `| ${roleIcons[role]||''} ${name}`;
+    }
+
+    // --- 2. 任务与拖拽 ---
+    async function loadTasks() {
+        const res = await fetch(API.tasks);
+        const data = await res.json();
+        const activeList = document.getElementById('list-active');
+        const doneList = document.getElementById('list-done');
+        activeList.innerHTML = ''; doneList.innerHTML = '';
+
+        data.items.forEach(t => {
+            const li = document.createElement('li');
+            li.className = `task-item p-${t.priority} ${t.status==='completed'?'done-item':''}`;
+            li.draggable = true;
+            li.addEventListener('dragstart', handleDragStart);
+            li.addEventListener('dragover', handleDragOver);
+            li.addEventListener('drop', handleDrop);
+            li.addEventListener('dragend', handleDragEnd);
+
+            let dateStr = '';
+            let remStr = '';
+            if (t.deadline) {
+                const d = new Date(t.deadline.replace(' ', 'T'));
+                const pad = n => String(n).padStart(2,'0');
+                dateStr = `📅 ${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                
+                if(t.remind_offset > 0) {
+                    const r_d = Math.floor(t.remind_offset / 1440);
+                    const r_h = Math.floor((t.remind_offset % 1440) / 60);
+                    const r_m = t.remind_offset % 60;
+                    let txt = '⏰ -';
+                    if(r_d>0) txt += r_d + (curLang==='zh'?'天':'d ');
+                    if(r_h>0) txt += r_h + (curLang==='zh'?'时':'h ');
+                    if(r_m>0) txt += r_m + (curLang==='zh'?'分':'m');
+                    remStr = txt;
+                }
+            }
+            
+            const catMap = { 'Work': I18N[curLang].cat_w, 'Study': I18N[curLang].cat_s, 'Life': I18N[curLang].cat_l, 'General': 'General' };
+            const catDisplay = catMap[t.category] || t.category;
+
+            // 构造任务HTML，点击内容触发 openEdit
+            li.innerHTML = `
+                <div style="cursor:pointer; font-size:18px;" onclick="toggleStatus(${t.id}, '${t.status}')">${t.status==='pending' ? '⬜' : '✅'}</div>
+                <div class="task-content" onclick="openEdit(${t.id}, '${encodeURIComponent(t.content)}', ${t.priority}, '${t.category}', '${t.deadline||''}', ${t.remind_offset||0})">
+                    <div class="task-title">${t.content}</div>
+                    <div class="task-meta">
+                        <span class="badge">${catDisplay}</span>
+                        ${dateStr ? `<span>${dateStr}</span>` : ''}
+                        ${remStr ? `<span style="color:var(--accent)">${remStr}</span>` : ''}
+                    </div>
+                </div>
+                <div style="cursor:pointer; color:var(--danger); padding:5px;" onclick="askDel(${t.id})">🗑️</div>
+            `;
+            if(t.status === 'completed') doneList.appendChild(li); else activeList.appendChild(li);
+        });
+    }
+
+    function handleDragStart(e) { dragSrc = this; this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+    function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); return false; }
+    function handleDrop(e) { e.stopPropagation(); if (dragSrc !== this) this.parentNode.insertBefore(dragSrc, this); return false; }
+    function handleDragEnd() { this.classList.remove('dragging'); }
+
+    // --- 3. 编辑任务 (新) ---
+    function openEdit(id, content, prio, cat, dead, offset) {
+        document.getElementById('editId').value = id;
+        document.getElementById('editInp').value = decodeURIComponent(content);
+        document.getElementById('editPrio').value = prio;
+        document.getElementById('editCat').value = cat;
+        if(dead && dead !== 'null') document.getElementById('editDead').value = dead.replace(' ', 'T');
+        else document.getElementById('editDead').value = '';
+        
+        // 反解 offset 为天/时/分
+        const d = Math.floor(offset / 1440);
+        const h = Math.floor((offset % 1440) / 60);
+        const m = offset % 60;
+        document.getElementById('edit_rem_d').value = d || '';
+        document.getElementById('edit_rem_h').value = h || '';
+        document.getElementById('edit_rem_m').value = m || '';
+
+        document.getElementById('modalEdit').style.display = 'flex';
+    }
+
+    async function saveEdit() {
+        const id = document.getElementById('editId').value;
+        const c = document.getElementById('editInp').value;
+        if(!c) return;
+        
+        const rd = parseInt(document.getElementById('edit_rem_d').value) || 0;
+        const rh = parseInt(document.getElementById('edit_rem_h').value) || 0;
+        const rm = parseInt(document.getElementById('edit_rem_m').value) || 0;
+        const totalMinutes = (rd * 1440) + (rh * 60) + rm;
+
+        await fetch(API.tasks + '/edit', {
+            method: 'POST',
+            body: JSON.stringify({
+                id: id,
+                content: c, 
+                priority: document.getElementById('editPrio').value,
+                category: document.getElementById('editCat').value,
+                deadline: document.getElementById('editDead').value.replace('T', ' '),
+                remind_offset: totalMinutes
+            })
+        });
+        closeModal('modalEdit');
+        loadTasks();
+    }
+
+    // --- 4. 提醒弹窗 (新) ---
+    // 这个函数会被后端的 Python 代码调用
+    function showReminderModal(id, title) {
+        // 如果是微缩模式，先展开
+        if (document.body.classList.contains('mini')) {
+            toggleMini(); // 调用切换函数
+        }
+        
+        document.getElementById('alertTitle').innerText = I18N[curLang].alert_title;
+        document.getElementById('alertContent').innerText = title;
+        document.getElementById('modalAlert').style.display = 'flex';
+        
+        // 播放提示音 (浏览器可能会拦截自动播放，尝试播放)
+        try {
+            const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+            audio.play().catch(e => console.log('Audio play blocked'));
+        } catch(e){}
+    }
+
+    // --- 5. 统计 ---
+    async function openStats() {
+        const res = await fetch(API.stats);
+        const d = await res.json();
+        document.getElementById('s-total').innerText = d.total;
+        document.getElementById('s-week').innerText = d.week;
+        let catHtml = '';
+        for (const [cat, count] of Object.entries(d.by_category)) {
+            const label = (cat==='Work'?I18N[curLang].cat_w : (cat==='Study'?I18N[curLang].cat_s : I18N[curLang].cat_l));
+            catHtml += `<div class="stat-row"><span>${label || cat}</span><span>${count} ✅</span></div>`;
+        }
+        document.getElementById('stats-cat-list').innerHTML = catHtml || '<div style="color:gray">-</div>';
+        const pLabels = { 'high': I18N[curLang].prio_h, 'med': I18N[curLang].prio_m, 'low': I18N[curLang].prio_l };
+        let prioHtml = '';
+        for (const [p, count] of Object.entries(d.by_priority)) {
+            if(count > 0) prioHtml += `<div class="stat-row"><span>${pLabels[p]}</span><span>${count} ✅</span></div>`;
+        }
+        document.getElementById('stats-prio-list').innerHTML = prioHtml || '<div style="color:gray">-</div>';
+        document.getElementById('modalStats').style.display = 'flex';
+    }
+
+    // --- 6. 计时器 ---
+    function openTimer() { 
+        document.getElementById('modalTimer').style.display = 'flex'; 
+        if(!isTimerRunning) switchTimerMode('countup');
+    }
+
+    function switchTimerMode(mode) {
+        if(isTimerRunning) {
+            if(!confirm('Timer is running. Stop and switch?')) return;
+            stopAndResetTimer();
+        }
+        timerMode = mode;
+        document.querySelectorAll('.timer-tab').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + mode).classList.add('active');
+        if(mode === 'countdown') {
+            document.getElementById('countdown-inputs').style.display = 'block';
+            document.getElementById('timerDisplay').innerText = "00:00:00";
+        } else {
+            document.getElementById('countdown-inputs').style.display = 'none';
+            document.getElementById('timerDisplay').innerText = "00:00:00";
+        }
+        timerPausedTime = 0;
+    }
+
+    function toggleTimer() {
+        const btn = document.getElementById('btnTimerAction');
+        if(isTimerRunning) {
+            clearInterval(timerRef);
+            isTimerRunning = false;
+            if(timerMode === 'countup') {
+                timerPausedTime += Date.now() - timerStartTime;
+            } else {
+                const remaining = timerStartTime - Date.now();
+                timerPausedTime = remaining;
+            }
+            btn.innerText = "▶ Continue";
+        } else {
+            if(timerMode === 'countdown') {
+                let durationMs = 0;
+                if (timerPausedTime > 0) {
+                    durationMs = timerPausedTime;
+                } else {
+                    const d = parseInt(document.getElementById('cd_d').value) || 0;
+                    const h = parseInt(document.getElementById('cd_h').value) || 0;
+                    const m = parseInt(document.getElementById('cd_m').value) || 0;
+                    const s = parseInt(document.getElementById('cd_s').value) || 0;
+                    durationMs = ((d * 86400) + (h * 3600) + (m * 60) + s) * 1000;
+                    if(durationMs <= 0) return alert("Please set a time!");
+                }
+                timerStartTime = Date.now() + durationMs;
+            } else {
+                timerStartTime = Date.now() - timerPausedTime;
+            }
+            isTimerRunning = true;
+            btn.innerText = "⏸ Pause";
+            timerRef = setInterval(updateTimerTick, 100);
+        }
+    }
+
+    function updateTimerTick() {
+        const now = Date.now();
+        let diff = 0;
+        if(timerMode === 'countup') {
+            diff = now - timerStartTime;
+        } else {
+            diff = timerStartTime - now;
+            if(diff <= 0) {
+                diff = 0;
+                stopAndResetTimer();
+                alert("Time is up!");
+                return;
+            }
+        }
+        const totalSec = Math.floor(diff / 1000);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        const fmt = n => String(n).padStart(2,'0');
+        document.getElementById('timerDisplay').innerText = `${fmt(h)}:${fmt(m)}:${fmt(s)}`;
+    }
+
+    function stopAndResetTimer() {
+        clearInterval(timerRef);
+        isTimerRunning = false;
+        timerPausedTime = 0;
+        document.getElementById('btnTimerAction').innerText = "▶ Start";
+        document.getElementById('timerDisplay').innerText = "00:00:00";
+    }
+
+    // --- 7. 删除逻辑 ---
+    function askDel(id) { pendingDelId = id; document.getElementById('modalDel').style.display = 'flex'; }
+    async function confirmDel() {
+        if(pendingDelId !== null) {
+            await fetch(API.tasks + '/' + pendingDelId, { method: 'DELETE' });
+            closeModal('modalDel');
+            pendingDelId = null;
+            loadTasks();
+        }
+    }
+
+    // --- 通用 ---
+    async function addTask() {
+        const c = document.getElementById('inp').value; if(!c) return;
+        
+        const rd = parseInt(document.getElementById('rem_d').value) || 0;
+        const rh = parseInt(document.getElementById('rem_h').value) || 0;
+        const rm = parseInt(document.getElementById('rem_m').value) || 0;
+        const totalMinutes = (rd * 1440) + (rh * 60) + rm;
+
+        await fetch(API.tasks + '/add', {
+            method: 'POST',
+            body: JSON.stringify({
+                content: c, priority: document.getElementById('prio').value,
+                category: document.getElementById('cat').value,
+                deadline: document.getElementById('dead').value.replace('T', ' '),
+                remind_offset: totalMinutes
+            })
+        });
+        document.getElementById('inp').value = ''; loadTasks();
+    }
+    
+    async function toggleStatus(id, s) { await fetch(API.tasks+'/status', { method:'POST', body:JSON.stringify({id, status:s==='pending'?'completed':'pending'}) }); loadTasks(); }
+    
+    function pyWin(a) { if(window.pywebview) { if(a==='min') window.pywebview.api.minimize(); if(a==='close') window.pywebview.api.close(); } }
+    async function toggleMini() { if(window.pywebview) { const m = await window.pywebview.api.toggle_compact(); document.body.classList.toggle('mini', m); } }
+    function updateMiniClock() { const n = new Date(); document.getElementById('mini-clock').innerText=n.toTimeString().slice(0,5); document.getElementById('mini-date').innerText=`${n.getMonth()+1}/${n.getDate()}`; }
+    
+    function openSettings() { document.getElementById('modalSettings').style.display='flex'; }
+    function closeModal(id) { document.getElementById(id).style.display='none'; }
+
+    init();
+</script>
+</body>
+</html>

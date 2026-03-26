@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TODO Pro - 智能任务管理</title>
+  <style>
+    body {
+      font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 40px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #2d3748;
+    }
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      text-align: center;
+      color: #1a202c;
+      margin-bottom: 18px;
+      font-size: 2.2rem;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 span { color: #667eea; }
+
+    /* --- Identity reminder overlay --- */
+    .identity-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 9999;
+    }
+    .identity-card {
+      width: 100%;
+      max-width: 560px;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      padding: 22px 22px 18px;
+      border: 1px solid #edf2f7;
+    }
+    .identity-card h2 {
+      margin: 0 0 10px;
+      font-size: 1.4rem;
+      color: #1a202c;
+    }
+    .identity-card .msg {
+      margin: 0 0 12px;
+      color: #4a5568;
+      line-height: 1.5;
+    }
+    .identity-box {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      white-space: pre-line;
+      color: #2d3748;
+      margin-bottom: 12px;
+    }
+    .identity-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .identity-actions button {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #edf2f7;
+      color: #2d3748;
+    }
+    .identity-actions button.primary {
+      background: linear-gradient(to right, #667eea, #764ba2);
+      color: #fff;
+    }
+
+    .topbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 0 20px;
+      flex-wrap: wrap;
+    }
+    .token {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex: 1;
+      min-width: 260px;
+    }
+    .token input {
+      flex: 1;
+    }
+    .pill {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #edf2f7;
+      color: #4a5568;
+      font-size: 0.85em;
+    }
+
+    .task-form {
+      background: #f7fafc;
+      padding: 25px;
+      border-radius: 15px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 18px;
+      transition: transform 0.2s;
+    }
+    .task-form:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .form-row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .input-group { flex: 1; min-width: 180px; }
+    .input-group.wide { flex: 2; min-width: 260px; }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 15px;
+      transition: all 0.3s;
+      box-sizing: border-box;
+    }
+    textarea { resize: vertical; min-height: 72px; }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.primary {
+      width: 100%;
+      background: linear-gradient(to right, #667eea, #764ba2);
+      color: white;
+      font-size: 16px;
+    }
+    button.primary:hover { opacity: 0.95; }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 0 18px;
+    }
+    .toolbar .left,
+    .toolbar .right {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .toolbar input, .toolbar select {
+      padding: 10px 12px;
+      border-radius: 10px;
+    }
+
+    .batchbar {
+      display: none;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: #fff;
+      border: 1px solid #edf2f7;
+      border-radius: 14px;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .batchbar .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .batchbar button {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #edf2f7;
+      color: #2d3748;
+    }
+    .batchbar button.danger {
+      background: #fed7d7;
+      color: #822727;
+    }
+    .batchbar button.good {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+
+    .task-list h2 {
+      border-bottom: 2px solid #edf2f7;
+      padding-bottom: 10px;
+      color: #4a5568;
+    }
+    .task-item {
+      background: white;
+      border-radius: 12px;
+      padding: 18px;
+      margin: 14px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+      border: 1px solid #edf2f7;
+      transition: all 0.2s;
+    }
+    .task-item:hover {
+      transform: translateX(4px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+
+    .priority-3 { border-left: 5px solid #fc8181; }
+    .priority-2 { border-left: 5px solid #f6ad55; }
+    .priority-1 { border-left: 5px solid #68d391; }
+
+    .overdue { border: 1px solid rgba(245, 101, 101, 0.45); background: #fff5f5; }
+
+    .task-main { flex: 1; }
+    .task-title {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .task-title strong {
+      display: block;
+      font-size: 1.1em;
+    }
+    .task-meta {
+      font-size: 0.9em;
+      color: #718096;
+      margin-bottom: 8px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.82em;
+      background: #edf2f7;
+      color: #4a5568;
+    }
+    .tag {
+      background: #ebf4ff;
+      color: #2b6cb0;
+    }
+
+    .tag-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tag-presets .badge {
+      cursor: pointer;
+      user-select: none;
+    }
+    .tag-presets .badge:hover {
+      opacity: 0.92;
+    }
+    .note {
+      font-size: 0.92em;
+      color: #4a5568;
+      background: #f7fafc;
+      border: 1px solid #edf2f7;
+      border-radius: 10px;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      display: none;
+      margin-top: 10px;
+    }
+
+    .task-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-end;
+      min-width: 140px;
+    }
+    .task-actions button {
+      padding: 9px 12px;
+      border-radius: 10px;
+      width: 140px;
+      background: #edf2f7;
+      color: #2d3748;
+      font-weight: 600;
+    }
+    .btn-complete { background: #c6f6d5 !important; color: #22543d !important; }
+    .btn-delete { background: #fed7d7 !important; color: #822727 !important; }
+
+    .completed { opacity: 0.65; background: #f7fafc; }
+    .completed strong { text-decoration: line-through; color: #a0aec0; }
+
+    .pager {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .pager button {
+      background: #edf2f7;
+      padding: 10px 12px;
+      border-radius: 12px;
+    }
+    .muted { color: #718096; }
+    a { color: #2b6cb0; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <!-- 身份选择：进入系统前选择“学生 / 上班族”（会影响标签推荐） -->
+  <div id="profileOverlay" class="identity-overlay">
+    <div class="identity-card">
+      <h2>🪪 选择身份</h2>
+      <p class="msg">进入系统前请选择身份：将自动切换标签推荐内容。</p>
+      <div class="identity-box" id="rolePreview">加载中…</div>
+      <div class="identity-actions">
+        <button onclick="pickRole('student')">我是学生</button>
+        <button class="primary" onclick="pickRole('worker')">我是上班族</button>
+      </div>
+    </div>
+  </div>
+  <div class="container">
+    <h1>🎯 TODO <span>Pro</span></h1>
+
+    <div class="topbar">
+      <div class="token">
+        <span class="pill">🔒 Token(可选)</span>
+        <input id="token" type="password" placeholder="若开启认证：输入 API Token" />
+        <button onclick="saveToken()">保存</button>
+      </div>
+      <div class="pill" id="rolePill" title="点击切换身份" onclick="openRoleChooser()">身份：未选择</div>
+      <div class="pill" id="stats">加载统计...</div>
+      <div class="pill"><a href="/api/docs" target="_blank">OpenAPI/Swagger</a></div>
+    </div>
+
+    <div class="task-form">
+      <div class="form-row">
+        <div class="input-group wide">
+          <input type="text" id="content" placeholder="📝 输入任务内容（支持自然语言：明天下午3点交报告）" required />
+        </div>
+        <div class="input-group">
+          <input type="datetime-local" id="deadline" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="input-group">
+          <select id="priority">
+            <option value="3">🔥 高优先级</option>
+            <option value="2" selected>⚠️ 中优先级</option>
+            <option value="1">☕ 低优先级</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <select id="category">
+            <option value="工作">💼 工作</option>
+            <option value="学习">📚 学习</option>
+            <option value="生活">🏠 生活</option>
+            <option value="其他">📦 其他</option>
+            <option value="通用" selected>🧩 通用</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <input type="text" id="tags" placeholder="🏷️ 标签（逗号分隔）" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="input-group wide">
+          <div class="muted" style="margin:2px 0 8px;">快捷标签（点击即可添加）：</div>
+          <div id="tagPresets" class="tag-presets"></div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="input-group">
+          <select id="repeat">
+            <option value="">⏱️ 不重复</option>
+            <option value="daily">每天</option>
+            <option value="weekly">每周</option>
+            <option value="monthly">每月</option>
+            <option value="custom">自定义 RRULE</option>
+          </select>
+        </div>
+        <div class="input-group wide">
+          <input type="text" id="rrule" placeholder="RRULE（例：FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE）" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="input-group">
+          <textarea id="notes" placeholder="📌 任务备注/详情（支持长文本）"></textarea>
+        </div>
+      </div>
+
+      <button class="primary" onclick="addTask()">➕ 添加新任务</button>
+    </div>
+
+    
+<div class="card" id="alarmCard">
+  <h2>⏰ 闹钟提醒</h2>
+  <div class="form-row">
+    <div class="input-group">
+      <input id="alarmTitle" type="text" placeholder="提醒内容（如：喝水 / 去开会）" />
+    </div>
+    <div class="input-group">
+      <input id="alarmAt" type="datetime-local" />
+    </div>
+    <button class="primary" onclick="addAlarm()">➕ 新增提醒</button>
+  </div>
+  <div class="muted">提示：也可以在任务卡片里点「⏰提醒(-30m)」，会按截止时间自动创建提醒。</div>
+  <div id="alarms-container" style="margin-top:12px;"></div>
+</div>
+
+<div class="toolbar">
+      <div class="left">
+        <input id="q" type="text" placeholder="🔍 搜索内容/备注" onkeydown="if(event.key==='Enter'){applyFilters();}" />
+        <select id="f_status" onchange="applyFilters()">
+          <option value="">全部状态</option>
+          <option value="pending">进行中</option>
+          <option value="completed">已完成</option>
+        </select>
+        <select id="f_category" onchange="applyFilters()">
+          <option value="">全部分类</option>
+          <option value="工作">工作</option>
+          <option value="学习">学习</option>
+          <option value="生活">生活</option>
+          <option value="其他">其他</option>
+          <option value="通用">通用</option>
+        </select>
+        <input id="f_tag" type="text" placeholder="筛选标签" onkeydown="if(event.key==='Enter'){applyFilters();}" />
+        <label class="pill"><input id="f_overdue" type="checkbox" onchange="applyFilters()" /> 只看逾期</label>
+      </div>
+      <div class="right">
+        <select id="sort" onchange="applyFilters()">
+          <option value="">默认排序</option>
+          <option value="deadline">按截止时间</option>
+          <option value="priority">按优先级</option>
+          <option value="created_at">按创建时间</option>
+          <option value="updated_at">按更新时间</option>
+        </select>
+        <select id="order" onchange="applyFilters()">
+          <option value="desc" selected>降序</option>
+          <option value="asc">升序</option>
+        </select>
+        <select id="page_size" onchange="applyFilters()">
+          <option value="10">10/页</option>
+          <option value="20" selected>20/页</option>
+          <option value="50">50/页</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="batchbar" id="batchbar">
+      <div><strong>已选 <span id="selCount">0</span> 项</strong> <span class="muted">（批量操作）</span></div>
+      <div class="actions">
+        <button class="good" onclick="batchAction('complete')">✅ 完成</button>
+        <button onclick="batchAction('postpone', {days:1})">⏭️ +1 天</button>
+        <button onclick="batchAction('postpone', {days:7})">⏭️ +1 周</button>
+        <button onclick="batchCategory()">📦 改分类</button>
+        <button class="danger" onclick="batchAction('delete')">🗑️ 删除</button>
+        <button onclick="clearSelection()">清空选择</button>
+      </div>
+    </div>
+
+    <div class="task-list">
+      <h2>📋 任务列表</h2>
+      <div id="tasks-container">
+        <p style="text-align:center; color:#a0aec0;">正在加载任务...</p>
+      </div>
+      <div class="pager" id="pager"></div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      alarms: [],
+      page: 1,
+      page_size: 20,
+      total: 0,
+      items: [],
+      selected: new Set(),
+    };
+
+    // --- Profile gate (pre-entry role selection) ---
+    const ROLE_KEY = 'todopro_role_v1';
+
+    function showProfileOverlay(show) {
+      const el = document.getElementById('profileOverlay');
+      if (!el) return;
+      el.style.display = show ? 'flex' : 'none';
+      document.body.style.overflow = show ? 'hidden' : '';
+    }
+
+    function setRolePill(text) {
+      const el = document.getElementById('rolePill');
+      if (el) el.textContent = text || '身份：未选择';
+    }
+
+    function addTagToInput(tag) {
+      const input = document.getElementById('tags');
+      if (!input) return;
+      const raw = (input.value || '').trim();
+      const parts = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+      if (!parts.includes(tag)) parts.push(tag);
+      input.value = parts.join(',');
+    }
+
+    function renderTagPresets() {
+      const bar = document.getElementById('tagPresets');
+      if (!bar) return;
+      bar.innerHTML = '';
+      const presets = state.tag_presets || [];
+      presets.forEach(t => {
+        const span = document.createElement('span');
+        span.className = 'badge tag';
+        span.textContent = '#' + t;
+        span.onclick = () => addTagToInput(t);
+        bar.appendChild(span);
+      });
+      // update placeholders
+      const tagsInput = document.getElementById('tags');
+      if (tagsInput) {
+        const ex = presets.slice(0, 3).join(',');
+        tagsInput.placeholder = ex ? `🏷️ 标签（逗号分隔，如：${ex}）` : '🏷️ 标签（逗号分隔）';
+      }
+      const fTag = document.getElementById('f_tag');
+      if (fTag) {
+        const ex2 = presets.slice(0, 2).join(' / ');
+        fTag.placeholder = ex2 ? `筛选标签（如：${ex2}）` : '筛选标签';
+      }
+    }
+
+    async function fetchProfile() {
+      try {
+        const r = await fetch('/api/profile');
+        if (r.ok) return await r.json();
+      } catch (e) {
+        // ignore
+      }
+      return null;
+    }
+
+    async function initProfileGate() {
+      const localRole = (localStorage.getItem(ROLE_KEY) || '').trim();
+      const profile = await fetchProfile();
+      const role = (localRole || (profile && profile.role) || '').trim();
+      if (role) {
+        state.role = role;
+        state.tag_presets = (profile && profile.tag_presets) || state.tag_presets || [];
+        setRolePill(`身份：${(profile && profile.role_label) || (role==='student'?'学生':'上班族')}`);
+        renderTagPresets();
+        showProfileOverlay(false);
+        return;
+      }
+
+      // no role yet -> show overlay + preview presets
+      const preview = document.getElementById('rolePreview');
+      if (preview) {
+        const s = (profile && profile.roles) ? profile.roles : [
+          {label:'学生', tag_presets:['学习','作业','考试']},
+          {label:'上班族', tag_presets:['会议','项目','客户']},
+        ];
+        preview.textContent = s.map(x => `${x.label}: ${ (x.tag_presets||[]).slice(0,6).join('、') }`).join('\n');
+      }
+      showProfileOverlay(true);
+    }
+
+    async function pickRole(role) {
+      role = String(role||'').trim();
+      localStorage.setItem(ROLE_KEY, role);
+      state.role = role;
+      // best-effort sync to server
+      try {
+        await fetch('/api/profile', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({role})
+        });
+      } catch (e) {
+        // ignore
+      }
+      const p = await fetchProfile();
+      state.tag_presets = (p && p.tag_presets) || (role==='student' ? ['学习','作业','考试','复习'] : ['会议','项目','客户','汇报']);
+      setRolePill(`身份：${(p && p.role_label) || (role==='student'?'学生':'上班族')}`);
+      renderTagPresets();
+      showProfileOverlay(false);
+    }
+
+    async function openRoleChooser() {
+      const profile = await fetchProfile();
+      const preview = document.getElementById('rolePreview');
+      if (preview) {
+        const s = (profile && profile.roles) ? profile.roles : [
+          {label:'学生', tag_presets:['学习','作业','考试']},
+          {label:'上班族', tag_presets:['会议','项目','客户']},
+        ];
+        preview.textContent = s.map(x => `${x.label}: ${ (x.tag_presets||[]).slice(0,6).join('、') }`).join('\n');
+      }
+      showProfileOverlay(true);
+    }
+
+    function getToken() {
+      return localStorage.getItem('todopro_token') || '';
+    }
+
+    function saveToken() {
+      const t = document.getElementById('token').value || '';
+      localStorage.setItem('todopro_token', t);
+      alert('已保存 Token');
+      refresh();
+    }
+
+    function authHeaders(extra={}) {
+      const t = getToken();
+      const h = {...extra};
+      if (t) h['Authorization'] = 'Bearer ' + t;
+      return h;
+    }
+
+    async function apiFetch(url, opts={}) {
+      const headers = authHeaders(opts.headers || {});
+      const o = {...opts, headers};
+      const resp = await fetch(url, o);
+      if (resp.status === 401) {
+        throw new Error('401 Unauthorized：请检查 Token（若后端开启认证）');
+      }
+      return resp;
+    }
+
+    // 兼容旧代码：提醒模块里使用 authFetch
+    async function authFetch(url, opts={}) {
+      return apiFetch(url, opts);
+    }
+
+    function qs(params) {
+      const u = new URLSearchParams();
+      Object.entries(params).forEach(([k,v]) => {
+        if (v === undefined || v === null || v === '') return;
+        u.set(k, String(v));
+      });
+      return u.toString();
+    }
+
+    async function loadStats() {
+      try {
+        const r = await apiFetch('/api/stats');
+        const s = await r.json();
+        document.getElementById('stats').textContent = `未完成 ${s.pending} · 已完成 ${s.completed} · 逾期 ${s.overdue}`;
+      } catch (e) {
+        document.getElementById('stats').textContent = '统计加载失败';
+      }
+    }
+
+    function updateBatchBar() {
+      const n = state.selected.size;
+      const bar = document.getElementById('batchbar');
+      document.getElementById('selCount').textContent = n;
+      bar.style.display = n > 0 ? 'flex' : 'none';
+    }
+
+    function clearSelection() {
+      state.selected.clear();
+      updateBatchBar();
+      renderTasks();
+    }
+
+    function toggleSelect(id, checked) {
+      if (checked) state.selected.add(id);
+      else state.selected.delete(id);
+      updateBatchBar();
+    }
+
+    function applyFilters() {
+      state.page = 1;
+      state.page_size = parseInt(document.getElementById('page_size').value || '20');
+      refresh();
+    }
+
+    async function loadTasks() {
+      const params = {
+        page: state.page,
+        page_size: state.page_size,
+        q: document.getElementById('q').value,
+        status: document.getElementById('f_status').value,
+        category: document.getElementById('f_category').value,
+        tag: document.getElementById('f_tag').value,
+        overdue: document.getElementById('f_overdue').checked ? 'true' : '',
+        sort: document.getElementById('sort').value,
+        order: document.getElementById('order').value,
+      };
+      const response = await apiFetch('/api/tasks?' + qs(params));
+      const data = await response.json();
+      state.items = data.items || [];
+      state.total = data.total || 0;
+      state.page = data.page || state.page;
+      state.page_size = data.page_size || state.page_size;
+    }
+
+    
+async function loadAlarms() {
+  try {
+    const r = await authFetch('/api/alarms?pending=1');
+    const data = await r.json();
+    state.alarms = data.items || [];
+  } catch (e) {
+    state.alarms = [];
+  }
+}
+
+function renderAlarms() {
+  const c = document.getElementById('alarms-container');
+  if (!c) return;
+  if (!state.alarms.length) {
+    c.innerHTML = '<p class="muted">暂无待触发提醒。</p>';
+    return;
+  }
+  c.innerHTML = state.alarms.map(a => {
+    const t = escapeHtml(a.fire_at || '');
+    const msg = escapeHtml(a.title || '');
+    return `
+      <div class="task-item" style="padding:10px 12px;">
+        <div class="task-main">
+          <div class="task-title"><strong>${msg || '提醒'}</strong></div>
+          <div class="task-meta"><span class="badge">⏰ ${t}</span>${a.task_id ? `<span class="badge">任务ID: ${a.task_id}</span>` : ''}</div>
+        </div>
+        <div class="task-actions">
+          <button onclick="markAlarmDone(${a.id})">✅ 完成</button>
+          <button class="btn-delete" onclick="deleteAlarm(${a.id})">🗑️ 删除</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function addAlarm() {
+  const title = (document.getElementById('alarmTitle').value || '').trim();
+  const at = document.getElementById('alarmAt').value;
+  if (!at) {
+    alert('请先选择提醒时间');
+    return;
+  }
+  await authFetch('/api/alarms', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ title, fire_at: at })
+  });
+  document.getElementById('alarmTitle').value = '';
+  document.getElementById('alarmAt').value = '';
+  await loadAlarms();
+  renderAlarms();
+  await loadStats();
+}
+
+async function markAlarmDone(id) {
+  await authFetch('/api/alarms/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action: 'done' })
+  });
+  await loadAlarms();
+  renderAlarms();
+  await loadStats();
+}
+
+async function deleteAlarm(id) {
+  if (!confirm('确定删除这个提醒吗？')) return;
+  await authFetch('/api/alarms/' + id, { method: 'DELETE' });
+  await loadAlarms();
+  renderAlarms();
+  await loadStats();
+}
+
+async function createTaskAlarm(taskId, beforeMinutes=30) {
+  // 为任务创建提醒（默认提前 30 分钟）
+  await authFetch('/api/alarms', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ task_id: taskId, before_minutes: beforeMinutes })
+  });
+  await loadAlarms();
+  renderAlarms();
+  await loadStats();
+  alert('已为该任务创建提醒（提前 '+beforeMinutes+' 分钟）');
+}
+
+function renderTasks() {
+      const container = document.getElementById('tasks-container');
+      container.innerHTML = '';
+
+      if (!state.items.length) {
+        container.innerHTML = '<p style="text-align:center; padding:20px;">🎉 暂无任务</p>';
+        document.getElementById('pager').innerHTML = '';
+        return;
+      }
+
+      state.items.forEach(task => {
+        const isCompleted = task.status === 'completed';
+        const priorityText = ({3:'高', 2:'中', 1:'低'}[task.priority] || '中');
+        const tags = (task.tags || []).map(t => `<span class="badge tag">#${escapeHtml(t)}</span>`).join('');
+        const deadline = task.deadline ? `<span class="badge">📅 ${escapeHtml(task.deadline)}</span>` : '';
+        const overdue = task.is_overdue ? `<span class="badge" style="background:#fed7d7;color:#822727;">⏰ 逾期</span>` : '';
+        const repeat = task.rrule ? `<span class="badge">🔁 重复</span>` : '';
+        const checked = state.selected.has(task.id) ? 'checked' : '';
+
+        const html = `
+          <div class="task-item priority-${task.priority} ${isCompleted ? 'completed' : ''} ${task.is_overdue ? 'overdue' : ''}">
+            <div class="task-main">
+              <div class="task-title">
+                <input type="checkbox" ${checked} onchange="toggleSelect(${task.id}, this.checked)" />
+                <strong>${escapeHtml(task.content)}</strong>
+              </div>
+              <div class="task-meta">
+                <span class="badge">${escapeHtml(task.category)}</span>
+                <span class="badge">优先级: ${priorityText}</span>
+                ${deadline}
+                ${overdue}
+                ${repeat}
+                ${tags}
+              </div>
+              ${task.notes ? `<div class="note" id="note-${task.id}">${escapeHtml(task.notes)}</div>` : ''}
+            </div>
+            <div class="task-actions">
+              <button class="${isCompleted ? '' : 'btn-complete'}" onclick="toggleTask(${task.id}, '${task.status}')">${isCompleted ? '↩️ 恢复' : '✅ 完成'}</button>
+              <button onclick="postpone(${task.id}, 1)">⏭️ +1 天</button>
+              <button onclick="postpone(${task.id}, 7)">⏭️ +1 周</button>
+              ${task.deadline ? `<button onclick="createTaskAlarm(${task.id}, 30)">⏰ 提醒(-30m)</button>` : ''}
+              <button onclick="toggleNote(${task.id})">📝 详情</button>
+              <button class="btn-delete" onclick="deleteTask(${task.id})">🗑️ 删除</button>
+            </div>
+          </div>
+        `;
+        container.innerHTML += html;
+      });
+
+      renderPager();
+    }
+
+    function renderPager() {
+      const pager = document.getElementById('pager');
+      const totalPages = Math.max(1, Math.ceil(state.total / state.page_size));
+      const prevDisabled = state.page <= 1;
+      const nextDisabled = state.page >= totalPages;
+
+      pager.innerHTML = `
+        <button ${prevDisabled ? 'disabled' : ''} onclick="gotoPage(${state.page - 1})">⬅️ 上一页</button>
+        <span class="pill">第 ${state.page} / ${totalPages} 页 · 共 ${state.total} 条</span>
+        <button ${nextDisabled ? 'disabled' : ''} onclick="gotoPage(${state.page + 1})">下一页 ➡️</button>
+      `;
+    }
+
+    function gotoPage(p) {
+      state.page = Math.max(1, p);
+      refresh();
+    }
+
+    function toggleNote(id) {
+      const el = document.getElementById('note-' + id);
+      if (!el) return;
+      el.style.display = el.style.display === 'block' ? 'none' : 'block';
+    }
+
+    async function addTask() {
+      const content = document.getElementById('content').value.trim();
+      if (!content) return alert('请输入任务内容');
+
+      const repeat = document.getElementById('repeat').value;
+      let rrule = document.getElementById('rrule').value.trim();
+      let repeatPayload = '';
+      if (repeat === 'custom') {
+        repeatPayload = rrule;
+      } else {
+        repeatPayload = repeat;
+      }
+
+      const payload = {
+        content,
+        priority: parseInt(document.getElementById('priority').value),
+        category: document.getElementById('category').value,
+        deadline: document.getElementById('deadline').value || null,
+        notes: document.getElementById('notes').value || null,
+        tags: document.getElementById('tags').value || null,
+        repeat: repeatPayload || null,
+      };
+
+      try {
+        await apiFetch('/api/tasks', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        alert('添加失败：' + e.message);
+        return;
+      }
+
+      document.getElementById('content').value = '';
+      document.getElementById('deadline').value = '';
+      document.getElementById('notes').value = '';
+      document.getElementById('tags').value = '';
+      document.getElementById('repeat').value = '';
+      document.getElementById('rrule').value = '';
+
+      refresh();
+    }
+
+    async function toggleTask(id, currentStatus) {
+      const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+      try {
+        await apiFetch('/api/tasks/' + id, {
+          method: 'PATCH',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ status: newStatus })
+        });
+      } catch (e) {
+        alert('操作失败：' + e.message);
+        return;
+      }
+      refresh();
+    }
+
+    async function postpone(id, days) {
+      try {
+        await apiFetch('/api/tasks/' + id, {
+          method: 'PATCH',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ action: 'postpone', days })
+        });
+      } catch (e) {
+        alert('延期失败：' + e.message);
+        return;
+      }
+      refresh();
+    }
+
+    async function deleteTask(id) {
+      if (!confirm('确定要删除吗？')) return;
+      try {
+        await apiFetch('/api/tasks/' + id, { method: 'DELETE' });
+      } catch (e) {
+        alert('删除失败：' + e.message);
+        return;
+      }
+      state.selected.delete(id);
+      refresh();
+    }
+
+    async function batchAction(action, extra={}) {
+      const ids = Array.from(state.selected.values());
+      if (!ids.length) return;
+      if (action === 'delete' && !confirm('确定批量删除吗？')) return;
+
+      const payload = { action, ids, ...extra };
+      try {
+        await apiFetch('/api/tasks/batch', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        alert('批量操作失败：' + e.message);
+        return;
+      }
+      clearSelection();
+      refresh();
+    }
+
+    async function batchCategory() {
+      const cat = prompt('请输入新的分类（工作/学习/生活/其他/通用）：', '通用');
+      if (!cat) return;
+      await batchAction('category', {category: cat});
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    async function refresh() {
+      try {
+        await loadTasks();
+        renderTasks();
+        await loadStats();
+        updateBatchBar();
+      } catch (e) {
+        const container = document.getElementById('tasks-container');
+        container.innerHTML = `<p style="text-align:center; padding:20px; color:#e53e3e;">${escapeHtml(e.message)}</p>`;
+      }
+    }
+
+    // init
+    document.getElementById('token').value = getToken();
+    initProfileGate();
+    refresh();
+  </script>
+</body>
+</html>
